@@ -126,175 +126,75 @@ public class TileManager : MonoBehaviour
 
     }
 
-
-    /*public void OnDropTiles(List<Tile> movingCluster)
-    {
-        List<TileCell> targetCells = new List<TileCell>();
-        HashSet<Tile> clustersToDisplace = new HashSet<Tile>();
-
-        // 1. Check if the drop is valid (all tiles in cluster must hit a cell)
-        foreach (var tile in movingCluster)
-        {
-            TileCell cell = UIOverlapChecker.GetTileCellUnderRect(tile.GetRectTransform());
-            if (cell == null)
-            {
-                ResetCluster(movingCluster);
-                return;
-            }
-            targetCells.Add(cell);
-
-            if (cell.CurrentTile != null && !movingCluster.Contains(cell.CurrentTile))
-            {
-                // Collect all tiles from the clusters we are about to bump out
-                foreach (var displacedTile in cell.CurrentTile.connectedTiles)
-                {
-                    clustersToDisplace.Add(displacedTile);
-                }
-            }
-        }
-
-        // 2. Size Validation: Can only swap if the clusters displaced match the size 
-        // of the empty slots available or if they are the same size.
-        if (clustersToDisplace.Count > 0 && clustersToDisplace.Count != movingCluster.Count)
-        {
-            Debug.LogWarning("Cluster size mismatch! Cannot swap.");
-            ResetCluster(movingCluster);
-            return;
-        }
-
-        // 3. Execution: Swap the clusters
-        // Temporarily clear the displaced tiles from the grid
-        List<TileCell> sourceCells = new List<TileCell>(emptyTileCellList);
-
-        foreach (var displaced in clustersToDisplace)
-        {
-            TileCell cell = GetCellOfTile(displaced);
-            cell.CurrentTile = null;
-        }
-
-        // Move the movingCluster into targetCells
-        for (int i = 0; i < movingCluster.Count; i++)
-        {
-            targetCells[i].SetCurrentTile(movingCluster[i]);
-        }
-
-        // Move displaced tiles into the old source cells
-        int cellIndex = 0;
-        foreach (var displaced in clustersToDisplace)
-        {
-            if (cellIndex < sourceCells.Count)
-            {
-                sourceCells[cellIndex].SetCurrentTile(displaced);
-                cellIndex++;
-            }
-        }
-
-        emptyTileCellList.Clear();
-        TryMergeCorrectAdjacentTiles(); // Check for new connections after drop
-    }*/
-
-    private void ResetCluster(List<Tile> cluster)
-    {
-        for (int i = 0; i < emptyTileCellList.Count; i++)
-        {
-            emptyTileCellList[i].SetCurrentTile(cluster[i]);
-        }
-        emptyTileCellList.Clear();
-    }
-
-    /*public void TryMergeCorrectAdjacentTiles()
-    {
-        foreach (var cell in AllTileCells)
-        {
-            if (cell.CurrentTile != null && cell.CurrentTile.connectedTiles.Count == AllTiles.Count)
-            {
-                Debug.LogWarning("All tiles connected! Puzzle solved!");
-            }
-
-            if (cell.CurrentTile != null)
-            {
-                Debug.Log($"Tile at cell {cell.CellPosition} has {cell.CurrentTile.connectedTiles.Count} connected tiles.");
-
-                //check left and right
-                Vector2 referenceCellPos = cell.GetCellPos();
-                Vector2 leftCellPos = referenceCellPos + new Vector2(-1, 0);
-                Vector2 rightCellPos = referenceCellPos + new Vector2(1, 0);
-                Vector2 upCellPos = referenceCellPos + new Vector2(0,1);
-                Vector2 downCellPos = referenceCellPos + new Vector2(0,-1);
-
-                Vector2[] targetPositions = { leftCellPos, rightCellPos, upCellPos, downCellPos };
-
-                List<TileCell> tileCells = AllTileCells
-                    .Where(c => targetPositions.Contains(c.CellPosition))
-                    .ToList();
-
-                Tile referenceTile = cell.CurrentTile;
-                Vector2 referenceCorrectPos = referenceTile.GetTileData().GetPos();
-
-                List<Tile> tiles = AddNeighbors(tileCells, referenceCellPos);
-
-                cell.GetCurrentTile().AddConnectedTile(tiles);
-            }
-        }
-    }
-
-    public List<Tile> AddNeighbors(List<TileCell> cells, Vector2 cellPos)
-    {
-        List<Tile> tiles = new List<Tile>();
-        Vector2 leftCellPos = cellPos + new Vector2(-1, 0);
-        Vector2 rightCellPos = cellPos + new Vector2(1, 0);
-        Vector2 upCellPos = cellPos + new Vector2(0, 1);
-        Vector2 downCellPos = cellPos + new Vector2(0, -1);
-
-        Vector2[] targetPositions = { leftCellPos, rightCellPos, upCellPos, downCellPos };
-        Debug.Log(targetPositions);
-
-        foreach (TileCell cell in cells)
-        {
-            Debug.LogWarning($"Attempting adding tile {cell.GetCurrentTile().GetTileData().GetPos()}");
-            if(targetPositions.Contains(cell.GetCurrentTile().GetTileData().GetPos()))
-            {
-                Debug.LogError($"Adding neighbor tile at cell position: {cell.CellPosition}");
-                tiles.Add(cell.GetCurrentTile());
-            }
-        }
-
-        return tiles;
-    }*/
-
     public void TryMergeCorrectAdjacentTiles()
     {
-        // Directional offsets: Right, Left, Up, Down
-        Vector2[] directions = { Vector2.right, Vector2.left, Vector2.up, Vector2.down };
-
         foreach (var cell in AllTileCells)
         {
-            Tile currentTile = cell.GetCurrentTile();
-            if (currentTile == null) continue;
+            if (cell.CurrentTile == null) continue;
 
-            Vector2 currentCorrectPos = currentTile.GetTileData().GetPos();
+            Tile referenceTile = cell.CurrentTile;
+            Vector2 referenceCorrectPos = referenceTile.GetTileData().GetPos();
 
-            foreach (Vector2 dir in directions)
+            // Get actual neighboring cells in the grid
+            Vector2[] neighborCellPositions =
             {
-                Vector2 neighborCellPos = cell.CellPosition + dir;
+                cell.CellPosition + Vector2.left,
+                cell.CellPosition + Vector2.right,
+                cell.CellPosition + Vector2.up,
+                cell.CellPosition + Vector2.down
+            };
 
-                // O(1) Lookup instead of .Where()
-                if (cellLookup.TryGetValue(neighborCellPos, out TileCell neighborCell))
-                {
-                    Tile neighborTile = neighborCell.GetCurrentTile();
-                    if (neighborTile == null) continue;
+            // Get existing neighbor cells
+            List<TileCell> neighborCells = AllTileCells
+                .Where(c => neighborCellPositions.Contains(c.CellPosition))
+                .ToList();
 
-                    // Check if this neighbor is the logically correct piece for this direction
-                    Vector2 neighborCorrectPos = neighborTile.GetTileData().GetPos();
+            // Get correctly-placed neighbors
+            List<Tile> correctNeighbors = AddNeighbors(referenceTile, neighborCells);
 
-                    if (neighborCorrectPos == currentCorrectPos + dir)
-                    {
-                        // They match! Add the neighbor. 
-                        // Note: Wrap this in a list because your method expects one
-                        currentTile.AddConnectedTile(new List<Tile> { neighborTile });
-                    }
-                }
-            }
+            // Add them to this tile's connected list
+            referenceTile.AddConnectedTile(correctNeighbors);
+
+            Debug.Log($"Tile at {cell.CellPosition} now has {referenceTile.connectedTiles.Count} connected tiles.");
+        }
+
+        // Check if puzzle is solved
+        if (AllTiles.All(t => t.connectedTiles.Count == AllTiles.Count - 1))
+        {
+            Debug.LogWarning("ALL TILES CONNECTED CORRECTLY! PUZZLE SOLVED!");
         }
     }
+
+    public List<Tile> AddNeighbors(Tile referenceTile, List<TileCell> neighborCells)
+    {
+        List<Tile> correctNeighbors = new List<Tile>();
+
+        Vector2 refCorrectPos = referenceTile.GetTileData().GetPos();
+
+        Vector2[] expectedNeighborCorrectPositions =
+        {
+            refCorrectPos + Vector2.left,
+            refCorrectPos + Vector2.right,
+            refCorrectPos + Vector2.up,
+            refCorrectPos + Vector2.down
+        };
+
+        foreach (TileCell cell in neighborCells)
+        {
+            Tile neighborTile = cell.GetCurrentTile();
+            if (neighborTile == null) continue;
+
+            Vector2 neighborCorrectPos = neighborTile.GetTileData().GetPos();
+
+            if (expectedNeighborCorrectPositions.Contains(neighborCorrectPos))
+            {
+                Debug.Log($"Correct neighbor found: {neighborCorrectPos}");
+                correctNeighbors.Add(neighborTile);
+            }
+        }
+
+        return correctNeighbors;
+    }
+
+
 }
