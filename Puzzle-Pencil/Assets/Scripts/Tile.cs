@@ -100,6 +100,15 @@ public class Tile : MonoBehaviour, IDragHandler, IEndDragHandler, IBeginDragHand
                 connectedTiles.Add(tile);
             }
         }
+        HashSet<Tile> uniqueTiles = new HashSet<Tile>(connectedTiles);
+        foreach (var tile in connectedTiles)
+        {
+            foreach(var connected in tile.connectedTiles)
+            {
+                uniqueTiles.UnionWith(connected.connectedTiles);
+            }
+        }
+        connectedTiles = new List<Tile>(uniqueTiles);
     }
 
     public RectTransform GetRectTransform()
